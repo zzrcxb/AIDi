@@ -3,6 +3,19 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Music file
+/drum
+/music_data
+
+*.mid
+*.mp3
+*.flac
+*.wav
+*.acc
+
+# Training results
+*.h5
+
 # C extensions
 *.so
 
