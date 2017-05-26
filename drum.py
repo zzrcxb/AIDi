@@ -32,6 +32,17 @@ def preprocess(path):
     velocity = [_['velocity'] for _ in snd]
     return notes, times, velocity
 
+def preprocess_multi(path, filenames=None):
+    notes, times, velocities = [], [], []
+    for file in os.listdir(path):
+        if filenames != None and file not in filenames:
+            continue
+        notes_tmp, times_tmp, vel_tmp = preprocess(os.path.join(path, file))
+        notes.extend(notes_tmp)
+        times.extend(times_tmp)
+        vel_tmp.extend(velocities)
+    return notes, times, velocities
+
 
 def get_training_data(msgs, validation_ratio, test_ratio, batch_size, max_time=1024):
     notes, times, velocity = msgs
@@ -162,7 +173,7 @@ def build_full_model(timesteps, dims):
 
 def training(path):
     timesteps = 20
-    training_set, validation_set, test_set = get_training_data(preprocess(path), 0.3, 0.0, timesteps)
+    training_set, validation_set, test_set = get_training_data(preprocess_multi(path), 0.3, 0.0, timesteps)
 
     x1data = np.array(training_set['note']['x'])
     y1data = np.array(training_set['note']['y'])
@@ -170,32 +181,32 @@ def training(path):
     y2data = np.array(training_set['velocity']['y'])
     x3data = np.array(training_set['time']['x'])
     y3data = np.array(training_set['time']['y'])
-    # model = build_full_model(timesteps, [128, 128, 1024])
-    model = build_model(timesteps, 128)
+    model = build_full_model(timesteps, [128, 128, 1024])
+    # model = build_model(timesteps, 128)
 
     print(x1data.shape)
     print(y1data.shape)
 
-    # model.fit(
-    #     {'notes_input': x1data, 'velocity_input': x2data, 'times_input': x3data},
-    #     {'notes_output': y1data, 'velocity_out': y2data, 'times_out': y3data},
-    #     epochs=20,
-    #     batch_size=128)
-
     model.fit(
-        x1data,
-        y1data,
-        epochs=300,
+        {'notes_input': x1data, 'velocity_input': x2data, 'times_input': x3data},
+        {'notes_output': y1data, 'velocity_out': y2data, 'times_out': y3data},
+        epochs=20,
         batch_size=128)
 
-    model.save('drum_note4f.h5')
-    model.save_weights('drum_note_weights4f.h5')
+    # model.fit(
+    #     x1data,
+    #     y1data,
+    #     epochs=300,
+    #     batch_size=128)
+
+    model.save('drum_note4.h5')
+    model.save_weights('drum_note_weights4.h5')
 
     return model
 
 
 def main():
-    model = training("Always_With_Me_Piano_Cover.mid")
+    model = training("./drum")
 
 
 if __name__ == '__main__':
