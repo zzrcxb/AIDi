@@ -40,7 +40,7 @@ def preprocess_multi(path, filenames=None):
         notes_tmp, times_tmp, vel_tmp = preprocess(os.path.join(path, file))
         notes.extend(notes_tmp)
         times.extend(times_tmp)
-        vel_tmp.extend(velocities)
+        velocities.extend(vel_tmp)
     return notes, times, velocities
 
 
@@ -76,7 +76,7 @@ def get_training_data(msgs, validation_ratio, test_ratio, batch_size, max_time=1
         for i in seqs:
             tmp.append(to_categorical(i, 128).flatten().astype(bool))
         vvels.append(tmp)
-    
+
     for seqs in btimes:
         tmp = []
         for i in seqs:
@@ -118,6 +118,9 @@ def build_model(timesteps, dim):
     model.add(Dropout(0.2))
 
     model.add(Dense(dim * 2))
+    model.add(Activation('relu'))
+
+    model.add(Dense(dim * 2))
     model.add(Activation('sigmoid'))
 
     model.add(Dense(dim * 2))
@@ -140,7 +143,14 @@ def build_full_model(timesteps, dims):
     # Note layer
     # LSTM
     notes_lstm_out1 = LSTM(dims[0], return_sequences=True, dropout=0.2)(notes_input)
-    notes_lstm_out = LSTM(dims[0], return_sequences=False, dropout=0.2)(notes_lstm_out1)
+    times_lstm_out1 = LSTM(dims[2], return_sequences=True, dropout=0.2)(times_input)
+    vel_lstm_out1 = LSTM(dims[1], return_sequences=True, dropout=0.2)(velocity_input)
+
+    notes_lstm_out = LSTM(dims[0] * 2, return_sequences=False)(notes_lstm_out1)
+    vel_lstm_out = LSTM(dims[1], return_sequences=False)(vel_lstm_out1)
+    times_lstm_out = LSTM(dims[2], return_sequences=False)(times_lstm_out1)
+
+    middle = keras.layers.concatenate([times_lstm_out, notes_lstm_out, vel_lstm_out])
 
     # Dense
     notes = Dense(dims[0] * 2, activation='relu')(notes_lstm_out)
@@ -149,31 +159,25 @@ def build_full_model(timesteps, dims):
     notes_out = Dense(dims[0], activation='softmax', name='notes_output')(notes)
 
     # Velocity
-    velocities = LSTM(dims[1], return_sequences=True, dropout=0.2)(velocity_input)
-    velocities = keras.layers.concatenate([velocities, notes_lstm_out1])
-    velocities = LSTM(dims[1], return_sequences=False, dropout=0.2)(velocities)
-    velocities = Dense(dims[1] * 2, activation='relu')(velocities)
+    velocities = Dense(dims[1] * 2, activation='relu')(middle)
     velocities = Dense(dims[1] * 2, activation='sigmoid')(velocities)
     velocities = Dense(dims[1], activation='sigmoid')(velocities)
     velocities_out = Dense(dims[1], activation='softmax', name='velocity_out')(velocities)
 
     # Times
-    times = LSTM(dims[2], return_sequences=True, dropout=0.2)(times_input)
-    times = keras.layers.concatenate([times, notes_lstm_out1])
-    times = LSTM(dims[2], return_sequences=False, dropout=0.2)(times)
-    times = Dense(dims[2] * 2, activation='relu')(times)
+    times = Dense(dims[2] * 2, activation='relu')(middle)
     times = Dense(dims[2] * 2, activation='sigmoid')(times)
     times = Dense(dims[2], activation='sigmoid')(times)
     times_out = Dense(dims[2], activation='softmax', name='times_out')(times)
 
     model = Model(inputs=[notes_input, velocity_input, times_input], outputs=[notes_out, velocities_out, times_out])
-    model.compile(optimizer='rmsprop', loss='categorical_crossentropy', loss_weights=[1., 0.3, 0.5], metrics=['accuracy'])
+    model.compile(optimizer='rmsprop', loss='categorical_crossentropy', loss_weights=[1., 0.5, 1.], metrics=['accuracy'])
     return model
 
 
 def training(path):
-    timesteps = 20
-    training_set, validation_set, test_set = get_training_data(preprocess_multi(path), 0.3, 0.0, timesteps)
+    timesteps = 30
+    training_set, validation_set, test_set = get_training_data(preprocess(path), 0.1, 0.0, timesteps, max_time=512)
 
     x1data = np.array(training_set['note']['x'])
     y1data = np.array(training_set['note']['y'])
@@ -181,8 +185,11 @@ def training(path):
     y2data = np.array(training_set['velocity']['y'])
     x3data = np.array(training_set['time']['x'])
     y3data = np.array(training_set['time']['y'])
-    model = build_full_model(timesteps, [128, 128, 1024])
+    model = build_full_model(timesteps, [128, 128, 512])
     # model = build_model(timesteps, 128)
+
+    # model = keras.models.load_model('piano_noteA.h5')
+    # model.load_weights('piano_note_weightsA.h5')
 
     print(x1data.shape)
     print(y1data.shape)
@@ -196,17 +203,17 @@ def training(path):
     # model.fit(
     #     x1data,
     #     y1data,
-    #     epochs=300,
+    #     epochs=500,
     #     batch_size=128)
 
-    model.save('drum_note4.h5')
-    model.save_weights('drum_note_weights4.h5')
+    model.save('piano_noteA.h5')
+    model.save_weights('piano_note_weightsA.h5')
 
     return model
 
 
 def main():
-    model = training("./drum")
+    model = training("./piano/A Sky Full of Stars.mid")
 
 
 if __name__ == '__main__':

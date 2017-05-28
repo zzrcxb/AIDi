@@ -3,18 +3,20 @@ from midi_tool import *
 from mido import MidiFile, MidiTrack
 from numpy.random import choice
 
-model = keras.models.load_model('drum_note4.h5')
-model.load_weights('drum_note_weights4.h5')
+model = keras.models.load_model('drum_noteS.h5')
+model.load_weights('drum_note_weightsS.h5')
 
-timesteps = 20
-training_set, validation_set, test_set = get_training_data(preprocess('Always_With_Me_Piano_Cover.mid'), 0.3, 0.0, timesteps)
-msgs = get_msgs(MidiFile('Always_With_Me_Piano_Cover.mid'), 0, True, note_on=True)
+timesteps = 40
+max_time = 512
+training_set, validation_set, test_set = get_training_data(preprocess('./piano/Forrest Gump.mid'), 0.3, 0.0, timesteps, max_time=max_time)
+
+msgs = get_msgs(MidiFile('./piano/Forrest Gump.mid'), 0, True, note_on=True)
 
 index = 20
 seed1 = np.array(validation_set['note']['x'][index]).reshape(1, timesteps, 128)
 
 res = []
-for i in range(1000):
+for i in range(1500):
     predicted = model.predict(seed1)
     tmp1 = list(predicted.flatten().argsort()[-3:][::-1])
 

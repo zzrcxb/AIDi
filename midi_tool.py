@@ -47,7 +47,7 @@ def get_msgs(midi_f, channel=None, convert=None, tempo=500000, show=False, note_
 def get_channels(dimi_f):
     channels = []
     for msg in dimi_f:
-        if msg.channel not in channels:
+        if not msg.is_meta and msg.channel not in channels:
             channels.append(msg.channel)
     return channels
 
