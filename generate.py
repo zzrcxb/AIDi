@@ -3,21 +3,39 @@ from midi_tool import *
 from mido import MidiFile, MidiTrack
 from numpy.random import choice
 
-model = keras.models.load_model('piano_note.h5')
-model.load_weights('piano_note_weights.h5')
+model = keras.models.load_model('piano_noteM3.h5')
+model.load_weights('piano_note_weightsM3.h5')
 
 timesteps = 40
 max_time = 512
-training_set, validation_set, test_set = get_training_data(preprocess('./piano/Croatian Rhapsody.mid'), 0.3, 0.0, timesteps, max_time=max_time)
-msgs = get_msgs(MidiFile('./piano/Croatian Rhapsody.mid'), 0, True, note_on=False)
 
+training_set, validation_set, test_set = get_training_data(preprocess('./piano/Playing Love.mid'), 0.7, 0.0, timesteps, max_time=max_time)
+msgs = get_msgs(MidiFile('./piano/Playing Love.mid'), 0, True, note_on=False)
 
-index = 20
+# training_set, validation_set, test_set = get_training_data(preprocess('Fade.mid'), 0.3, 0.0, timesteps, max_time=max_time)
+# msgs = get_msgs(MidiFile('Fade.mid'), 0, True, note_on=False)
+
+index = 40
 seed1 = np.array(validation_set['note']['x'][index]).reshape(1, timesteps, 128)
 seed2 = np.array(validation_set['velocity']['x'][index]).reshape(1, timesteps, 128)
 seed3 = np.array(validation_set['time']['x'][index]).reshape(1, timesteps, max_time)
+
+# save seeds
+seed_out = msgs[0:6]
+for i in range(timesteps):
+    note = np.argmax(seed1[0, i, :])
+    vel = np.argmax(seed2[0, i, :])
+    times = np.argmax(seed3[0, i, :])
+    seed_out.append(mido.Message('note_on', note=note, velocity=vel, time=times, channel=0))
+
+mid = MidiFile()
+track = MidiTrack()
+mid.tracks.append(track)
+track.extend(seed_out)
+mid.save('seed.mid')
+
 res = []
-for i in range(1000):
+for i in range(2000):
     predicted = model.predict(
         {'notes_input': seed1,
         'velocity_input': seed2,

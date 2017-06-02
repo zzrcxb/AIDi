@@ -153,7 +153,7 @@ def build_full_model(timesteps, dims):
     middle = keras.layers.concatenate([times_lstm_out, notes_lstm_out, vel_lstm_out])
 
     # Dense
-    notes = Dense(dims[0] * 2, activation='relu')(notes_lstm_out)
+    notes = Dense(dims[0] * 2, activation='relu')(middle)
     notes = Dense(dims[0] * 2, activation='sigmoid')(notes)
     notes = Dense(dims[0], activation='sigmoid')(notes)
     notes_out = Dense(dims[0], activation='softmax', name='notes_output')(notes)
@@ -177,7 +177,7 @@ def build_full_model(timesteps, dims):
 
 def training(path):
     timesteps = 30
-    training_set, validation_set, test_set = get_training_data(preprocess(path), 0.1, 0.0, timesteps, max_time=512)
+    training_set, validation_set, test_set = get_training_data(preprocess_multi(path), 0.1, 0.0, timesteps, max_time=512)
 
     x1data = np.array(training_set['note']['x'])
     y1data = np.array(training_set['note']['y'])
@@ -185,11 +185,11 @@ def training(path):
     y2data = np.array(training_set['velocity']['y'])
     x3data = np.array(training_set['time']['x'])
     y3data = np.array(training_set['time']['y'])
-    model = build_full_model(timesteps, [128, 128, 512])
+    # model = build_full_model(timesteps, [128, 128, 512])
     # model = build_model(timesteps, 128)
 
-    # model = keras.models.load_model('piano_noteA.h5')
-    # model.load_weights('piano_note_weightsA.h5')
+    model = keras.models.load_model('piano_noteM2.h5')
+    model.load_weights('piano_note_weightsM2.h5')
 
     print(x1data.shape)
     print(y1data.shape)
@@ -197,7 +197,7 @@ def training(path):
     model.fit(
         {'notes_input': x1data, 'velocity_input': x2data, 'times_input': x3data},
         {'notes_output': y1data, 'velocity_out': y2data, 'times_out': y3data},
-        epochs=20,
+        epochs=40,
         batch_size=128)
 
     # model.fit(
@@ -206,14 +206,14 @@ def training(path):
     #     epochs=500,
     #     batch_size=128)
 
-    model.save('piano_noteA.h5')
-    model.save_weights('piano_note_weightsA.h5')
+    model.save('piano_noteM2.h5')
+    model.save_weights('piano_note_weightsM2.h5')
 
     return model
 
 
 def main():
-    model = training("./piano/A Sky Full of Stars.mid")
+    model = training("./piano/")
 
 
 if __name__ == '__main__':
