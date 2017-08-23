@@ -1,75 +1,69 @@
-from drum import *
-from midi_tool import *
-from mido import MidiFile, MidiTrack
-from numpy.random import choice
+import numpy as np
+import keras
+import logging
+import warnings
+import time
+import os
+import mido
 
-model = keras.models.load_model('piano_noteM3.h5')
-model.load_weights('piano_note_weightsM3.h5')
+from keras.layers import TimeDistributed, Input, Dense, LSTM
+from keras.layers.embeddings import Embedding
+from keras.layers.core import Dense, Activation, Dropout
+from keras.models import Sequential, Model
+
+from pre_process import SCNOC_PreProcessor
+
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' #Hide messy TensorFlow warnings
+warnings.filterwarnings("ignore") #Hide messy Numpy warnings
+
+model = keras.models.load_model('test2.h5')
+model.load_weights('test2_weights.h5')
 
 timesteps = 40
-max_time = 512
 
-training_set, validation_set, test_set = get_training_data(preprocess('./piano/Playing Love.mid'), 0.7, 0.0, timesteps, max_time=max_time)
-msgs = get_msgs(MidiFile('./piano/Playing Love.mid'), 0, True, note_on=False)
+res = SCNOC_PreProcessor.single_process('test/Forrest Gump.mid', 0)
+msgs = SCNOC_PreProcessor.get_msgs('test/Forrest Gump.mid', lambda x: x.type=='note_on')
+print(np.array([_[0] for _ in res[0][:timesteps]]).shape)
+n_in = np.array([_[0] for _ in res[0][:timesteps]]).reshape(1, timesteps, 128)
+# t_in = np.array([_[1] for _ in res[0][:timesteps]]).reshape(1, timesteps, 500)
+print(n_in.shape)
+# print(t_in.shape)
 
-# training_set, validation_set, test_set = get_training_data(preprocess('Fade.mid'), 0.3, 0.0, timesteps, max_time=max_time)
-# msgs = get_msgs(MidiFile('Fade.mid'), 0, True, note_on=False)
+notes = []
+while len(notes) < 50:
+    print([i for i, x in enumerate(res[0][timesteps + len(notes)][0]) if x], end='\t')
 
-index = 40
-seed1 = np.array(validation_set['note']['x'][index]).reshape(1, timesteps, 128)
-seed2 = np.array(validation_set['velocity']['x'][index]).reshape(1, timesteps, 128)
-seed3 = np.array(validation_set['time']['x'][index]).reshape(1, timesteps, max_time)
+    predicted = model.predict({'n_in': n_in, })
+    pos = predicted[0].flatten().argsort()[-5:][::-1]
+    # print(len(predicted))
+    nn = predicted[0] > 0.3
+    # print(predicted)
+    nn = [i for i, x in enumerate(nn) if x]
+    notes.append(nn)
+    print(nn)
 
-# save seeds
-seed_out = msgs[0:6]
-for i in range(timesteps):
-    note = np.argmax(seed1[0, i, :])
-    vel = np.argmax(seed2[0, i, :])
-    times = np.argmax(seed3[0, i, :])
-    seed_out.append(mido.Message('note_on', note=note, velocity=vel, time=times, channel=0))
+    new_notes = np.zeros(128, dtype=bool)
+    for i in nn:
+        new_notes[i] = True
+    new_notes = new_notes.reshape(1, 1, 128)
 
-mid = MidiFile()
-track = MidiTrack()
-mid.tracks.append(track)
-track.extend(seed_out)
-mid.save('seed.mid')
+    n_in = np.delete(n_in, 0, 1)
+    # print(n_in.shape, new_notes.shape)
+    n_in = np.append(n_in, new_notes, 1)
 
-res = []
-for i in range(2000):
-    predicted = model.predict(
-        {'notes_input': seed1,
-        'velocity_input': seed2,
-        'times_input': seed3})
-    tmp1 = list(predicted[0].flatten().argsort()[-3:][::-1])
-    tmp2 = list(predicted[1].flatten().argsort()[-3:][::-1])
-    tmp3 = list(predicted[2].flatten().argsort()[-3:][::-1])
+# print(notes)
+msg_out = msgs[0:40]
+for nn in notes:
+    if len(nn) == 0:
+        continue
+    msg_out.append(mido.Message('note_on', note=nn[0], velocity=64, time=249, channel=0))
+    del nn[0]
+    for _ in nn:
+        msg_out.append(mido.Message('note_on', note=_, velocity=64, time=0, channel=0))
 
-    # tmp1 = choice(tmp1, p=[0.8, 0.15, 0.05])
-    tmp1 = tmp1[0]
-    res.append([tmp1, tmp2[0], tmp3[0]])
-    # print(tmp1[0].shape, tmp2[0].shape, tmp3[0].shape)
-
-    vec1 = to_categorical(tmp1, 128).reshape(1, 1, 128)
-    vec2 = to_categorical(tmp2[0], 128).reshape(1, 1, 128)
-    vec3 = to_categorical(tmp3[0], max_time).reshape(1, 1, max_time)
-
-    seed1 = np.delete(seed1, 0, 1)
-    seed2 = np.delete(seed2, 0, 1)
-    seed3 = np.delete(seed3, 0, 1)
-
-    seed1 = np.append(seed1, vec1, 1)
-    seed2 = np.append(seed2, vec2, 1)
-    seed3 = np.append(seed3, vec3, 1)
-
-print(res)
-print(msgs[0:10])
-
-msg_out = msgs[0:6]
-for _ in res:
-    msg_out.append(mido.Message('note_on', note=_[0], velocity=_[1], time=_[2], channel=0))
-
-mid = MidiFile()
-track = MidiTrack()
+mid = mido.MidiFile()
+track = mido.MidiTrack()
 mid.tracks.append(track)
 track.extend(msg_out)
 mid.save('test.mid')

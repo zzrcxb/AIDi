@@ -15,7 +15,6 @@ from keras.models import Sequential, Model
 from keras.utils.np_utils import to_categorical
 from keras.optimizers import RMSprop
 
-
 from midi_tool import *
 from mido import Message
 
@@ -24,23 +23,28 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' #Hide messy TensorFlow warnings
 warnings.filterwarnings("ignore") #Hide messy Numpy warnings
 
 
-def preprocess(path):
-    msgs = get_msgs(mido.MidiFile(path), 0, True, note_on=True)
+def preprocess(path, channel=0):
+    msgs = get_msgs(mido.MidiFile(path), channel, True, note_on=True)
     snd = list(map(Message.dict, msgs))
     notes = [_['note'] for _ in snd]
     times = [_['time'] for _ in snd]
     velocity = [_['velocity'] for _ in snd]
+
+    print(path, len(notes))
     return notes, times, velocity
 
 def preprocess_multi(path, filenames=None):
     notes, times, velocities = [], [], []
-    for file in os.listdir(path):
-        if filenames != None and file not in filenames:
-            continue
-        notes_tmp, times_tmp, vel_tmp = preprocess(os.path.join(path, file))
-        notes.extend(notes_tmp)
-        times.extend(times_tmp)
-        velocities.extend(vel_tmp)
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if not file.endswith('.mid'):
+                continue
+
+            print(os.path.join(root, file))
+            notes_tmp, times_tmp, vel_tmp = preprocess(os.path.join(root, file))
+            notes.extend(notes_tmp)
+            times.extend(times_tmp)
+            velocities.extend(vel_tmp)
     return notes, times, velocities
 
 
@@ -185,11 +189,11 @@ def training(path):
     y2data = np.array(training_set['velocity']['y'])
     x3data = np.array(training_set['time']['x'])
     y3data = np.array(training_set['time']['y'])
-    # model = build_full_model(timesteps, [128, 128, 512])
+    model = build_full_model(timesteps, [128, 128, 512])
     # model = build_model(timesteps, 128)
 
-    model = keras.models.load_model('piano_noteM2.h5')
-    model.load_weights('piano_note_weightsM2.h5')
+    # model = keras.models.load_model('piano_note_cc3.h5')
+    # model.load_weights('piano_note_weights_cc3.h5')
 
     print(x1data.shape)
     print(y1data.shape)
@@ -197,7 +201,7 @@ def training(path):
     model.fit(
         {'notes_input': x1data, 'velocity_input': x2data, 'times_input': x3data},
         {'notes_output': y1data, 'velocity_out': y2data, 'times_out': y3data},
-        epochs=40,
+        epochs=80,
         batch_size=128)
 
     # model.fit(
@@ -206,14 +210,14 @@ def training(path):
     #     epochs=500,
     #     batch_size=128)
 
-    model.save('piano_noteM2.h5')
-    model.save_weights('piano_note_weightsM2.h5')
+    model.save('piano_note_cc1.h5')
+    model.save_weights('piano_note_weights_cc1.h5')
 
     return model
 
 
 def main():
-    model = training("./piano/")
+    model = training("./test/")
 
 
 if __name__ == '__main__':

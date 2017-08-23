@@ -1,5 +1,6 @@
 import mido
 import time
+from mido import MidiFile, MidiTrack
 
 
 def play_midi(path, channel=None, show=False):
