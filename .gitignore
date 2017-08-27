@@ -8,7 +8,6 @@ __pycache__/
 /music_data
 /.vscode
 
-*.mid
 *.mp3
 *.flac
 *.wav
