@@ -1,2 +1,5 @@
 # AIDi
-A music AI plays midi music.
+Demos:
+
+- [Piano](demo/piano.mid)
+- [Drum](demo/drum.mid)
