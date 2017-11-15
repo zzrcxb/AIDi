@@ -4,7 +4,7 @@ AIDi is a project using RNN to generate midi music. It can deal with chords and 
 
 ## Changelog
 
-- 8/27/2017: Now AIDi is open source now.
+- 8/27/2017: AIDi is open source now.
 
 
 - 8/23/2017: Update model optimized for chord generation.
