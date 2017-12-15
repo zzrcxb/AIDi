@@ -12,5 +12,5 @@ AIDi is a project using RNN to generate midi music. It can deal with chords and 
 
 ## Demos:
 
-- [Piano](demo/piano.mid)
-- [Drum](demo/drum.mid)
+- [Piano](https://raw.githubusercontent.com/zzrcxb/AIDi/master/demo/piano.mp3)
+- [Drum](https://raw.githubusercontent.com/zzrcxb/AIDi/master/demo/drum.mp3)
